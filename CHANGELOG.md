@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-23
+
 ### Added
 
 - Reading of the Zinvolt batteries of an account through the Zinvolt cloud
@@ -49,4 +51,5 @@ the notes of the version's GitHub Release.
   `THIRD_PARTY_NOTICES.md` (MIT notice of python-zinvolt), shipped in the
   image.
 
-[Unreleased]: https://github.com/LM1LC3N7/gladys-zinvolt/commits/main
+[Unreleased]: https://github.com/LM1LC3N7/gladys-zinvolt/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/LM1LC3N7/gladys-zinvolt/releases/tag/v0.1.1

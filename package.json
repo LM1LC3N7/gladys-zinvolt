@@ -1,6 +1,6 @@
 {
   "name": "gladys-zinvolt",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Zinvolt batteries for Gladys Assistant: state of charge, battery and solar powers, mode and settings read from the Zinvolt cloud account. Read-only.",
   "type": "module",
