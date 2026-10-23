@@ -1,67 +1,76 @@
-# Template de démonstration
+# Zinvolt
 
-Ceci est la documentation utilisateur de l'intégration. Gladys ré-héberge ce
-fichier et affiche un lien **Documentation** permanent vers lui dans l'écran
-de configuration (dans la langue de l'utilisateur, avec l'anglais en repli) —
-c'est au moment de configurer que l'utilisateur en a le plus besoin. Gardez
-les courtes indications d'accueil dans les blocs `section` du `config_schema`
-du manifest ; mettez ici le pas-à-pas détaillé (captures d'écran, dépannage…).
+Intégration non officielle, sans lien avec Zinvolt. Elle lit les **batteries
+Zinvolt** de votre compte par le service cloud de Zinvolt, avec l’e-mail et
+le mot de passe que vous utilisez dans l’application Zinvolt.
+
+**Jamais testé avec un vrai appareil** : l’intégration a été construite à
+partir de la bibliothèque
+[python-zinvolt](https://github.com/joostlek/python-zinvolt) (celle de Home
+Assistant) et de ses réponses de test. Merci de signaler ce que vous voyez
+sur une vraie batterie.
 
 ## Ce que vous obtenez
 
-Six appareils de démonstration apparaissent après l'installation : une
-station météo (vraies données Open-Meteo), un interrupteur, une lampe
-variable, une prise connectée avec mesure de puissance, un détecteur de
-mouvement et une caméra.
+Un appareil par batterie du compte (10 au plus), avec :
+
+- le niveau de charge (%) ;
+- les puissances de charge et de décharge (W), et la puissance de la
+  batterie telle que reçue (W, négative pendant la charge) ;
+- la puissance solaire (W) et la puissance de la sortie prise (W, telle que
+  reçue) ;
+- les états en ligne, sur le réseau et en veille (1 = oui, 0 = non) ;
+- le mode intelligent (0 = défaut, 1 = autoconsommation, 2 = dynamique,
+  3 = chargé, 4 = performance, 5 = injection, 6 = personnalisé) ;
+- les réglages : sortie maximale, limites haute de charge et basse de
+  décharge, puissance de charge maximale, délai de veille, et la limite de
+  puissance du système.
+
+**Lecture seule** : l’intégration ne change jamais le mode, la sortie, les
+limites ni rien d’autre de la batterie.
+
+**Aucun compteur d’énergie** : l’API Zinvolt ne donne que des puissances,
+aucun kWh. L’intégration n’ajoute rien au suivi énergétique de Gladys et ne
+fabrique jamais d’énergie à partir d’une puissance.
+
+Une batterie hors ligne ne reçoit que son état en ligne et ses réglages : ses
+dernières valeurs en direct ne sont jamais renvoyées comme nouvelles.
 
 ## Configuration
 
-1. Ouvrez l'onglet **Configuration** de l'intégration.
-2. Renseignez la **latitude** et la **longitude** que la station météo de
-   démonstration doit observer (Paris par défaut), et choisissez votre unité
-   de température. L'**intervalle de rafraîchissement** règle la fréquence
-   de lecture de la station météo et de la puissance de la prise : toutes
-   les 5 minutes par défaut, toutes les minutes au plus.
-3. Enregistrez : les appareils apparaissent dans l'onglet **Découverte**,
-   prêts à être ajoutés.
+1. Dans Gladys, ouvrez l’intégration, onglet **Configuration**.
+2. Saisissez l’**e-mail** et le **mot de passe** de votre compte Zinvolt. Le
+   mot de passe est gardé par Gladys dans sa base, jamais réaffiché ; il est
+   envoyé seulement au service Zinvolt, dans sa requête de connexion, jamais
+   journalisé.
+3. Gardez l’**intervalle de lecture** à 60 s, ou plus. Une lecture, c’est une
+   requête pour la liste, une par batterie, et une connexion quand la session
+   en demande une.
+4. Enregistrez, puis créez les appareils depuis l’onglet **Découverte**.
 
-Le réglage **Préférer la connexion locale** pilote la prise de
-démonstration : elle affiche en badge le canal réellement utilisé (local ou
-cloud), avec un point orange quand elle fonctionne en mode dégradé (local
-refusé, bascule cloud).
+## Fonctionnement
 
-## Actions
-
-- **Tester le fournisseur météo** — effectue une requête en direct vers
-  Open-Meteo et affiche la température et l'humidité actuelles sous le
-  bouton.
-- **Identifier un appareil** — choisissez un de vos appareils dans la liste
-  et il se signale (la lampe de démonstration « clignote » dans les logs).
-
-## Scènes
-
-L'intégration ajoute ses propres cartes à l'éditeur de scènes (Gladys 5.1
-ou plus récent), dans la catégorie **Intégrations** :
-
-- **Mouvement détecté** (déclencheur) — lance la scène quand un détecteur
-  de démonstration voit bouger quelque chose. Choisissez éventuellement le
-  détecteur et ce qui a bougé (personne, animal) ; laissés vides, toute
-  détection correspond. Les actions suivantes peuvent lire ce qui a bougé
-  avec `{{triggerEvent.data.target}}`.
-- **Identifier un appareil** (action) — fait se signaler l'appareil choisi.
-  Elle indique si l'appareil a pu se signaler, pour que les actions
-  suivantes puissent en dépendre.
-
-## Tableau de bord
-
-Ajoutez le widget **État de la démo** à un tableau de bord : il affiche en
-direct la température de la station météo et la puissance de la prise du
-bureau, la connexion utilisée par la prise (en orange si dégradée) et la
-position observée. Son bouton **Identifier la lampe** fait se signaler la
-lampe de démonstration.
+- Jamais de lecture plus rapide que l’intervalle : ni le bouton de test, ni la
+  Découverte, ni une reconnexion, ni l’enregistrement d’un formulaire
+  inchangé, ni un redémarrage (l’heure de la dernière requête est gardée dans
+  `/data`).
+- **E-mail ou mot de passe refusé** : les lectures s’arrêtent et restent
+  arrêtées, même après un redémarrage ; aucun nouvel essai automatique (un
+  compte pourrait être bloqué). Enregistrez le bon mot de passe, ou cliquez
+  sur **Tester la connexion** pour un essai.
+- **Trop de requêtes ou erreur du service** : les lectures se mettent en pause
+  de 1 minute à 6 heures (gardée dans `/data`). Une batterie qui échoue seule
+  est seulement laissée de côté pour cette lecture.
+- `/data` ne garde jamais l’e-mail, le mot de passe ni la session : seulement
+  une empreinte salée du compte, et des identifiants refusés tant qu’ils le
+  sont.
+- Chaque réponse doit porter le numéro de série de la batterie demandée ; une
+  réponse au nom d’une autre est laissée de côté.
 
 ## Dépannage
 
-L'intégration journalise tout ce qu'elle fait : consultez les logs de
-l'intégration depuis l'interface Gladys (ou `docker logs` sur l'hôte) avec
-`LOG_LEVEL=debug` pour le détail complet.
+- L’état de l’intégration dit ce qui s’est passé et l’heure de la prochaine
+  lecture.
+- Les valeurs semblent inversées (charge affichée comme décharge) ? Le signe
+  de la puissance de la batterie n’a pas encore été vérifié sur une vraie
+  batterie : merci de le signaler.

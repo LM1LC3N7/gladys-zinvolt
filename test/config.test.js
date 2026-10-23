@@ -1,33 +1,24 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeConfig, DEFAULT_CONFIG } from '../src/config.js';
+import { normalizeConfig } from '../src/config.js';
 
-test('normalizeConfig returns the defaults when called with no argument', () => {
-  assert.deepEqual(normalizeConfig(), DEFAULT_CONFIG);
-});
-
-test('normalizeConfig keeps user values over the defaults', () => {
-  const config = normalizeConfig({ latitude: 45.5, longitude: -73.6, unit: 'fahrenheit' });
-  assert.equal(config.latitude, 45.5);
-  assert.equal(config.longitude, -73.6);
-  assert.equal(config.unit, 'fahrenheit');
-});
-
-test('normalizeConfig coerces numeric strings coming from a form', () => {
-  const config = normalizeConfig({ latitude: '48.8', longitude: '2.3', poll_frequency: '600' });
-  assert.equal(config.latitude, 48.8);
-  assert.equal(config.longitude, 2.3);
-  assert.equal(config.poll_frequency, 600);
-  assert.equal(typeof config.poll_frequency, 'number');
-});
-
-test('normalizeConfig falls back to the default for a missing numeric field', () => {
-  const config = normalizeConfig({ unit: 'celsius' });
-  assert.equal(config.poll_frequency, DEFAULT_CONFIG.poll_frequency);
-});
-
-test('GLADYS_PREFER_LOCAL defaults to true and only an explicit false disables it', () => {
-  assert.equal(normalizeConfig().GLADYS_PREFER_LOCAL, true);
-  assert.equal(normalizeConfig({ GLADYS_PREFER_LOCAL: true }).GLADYS_PREFER_LOCAL, true);
-  assert.equal(normalizeConfig({ GLADYS_PREFER_LOCAL: false }).GLADYS_PREFER_LOCAL, false);
+test('the configuration: problems named, the password never kept when invalid', () => {
+  assert.equal(normalizeConfig({}).problem, 'email_missing');
+  assert.equal(normalizeConfig({ email: 'not an email', password: 'x' }).problem, 'email_invalid');
+  assert.equal(normalizeConfig({ email: 'a@b.c' }).problem, 'password_missing');
+  for (const bad of ['line\nbreak', 'x'.repeat(257), `a${String.fromCharCode(0)}b`]) {
+    const config = normalizeConfig({ email: 'a@b.c', password: bad });
+    assert.equal(config.problem, 'password_invalid');
+    assert.equal(config.password, undefined);
+  }
+  const ok = normalizeConfig({ email: ' a@b.c ', password: ' with spaces ', poll_interval: '120' });
+  assert.deepEqual(ok, {
+    email: 'a@b.c',
+    password: ' with spaces ',
+    pollInterval: 120,
+    problem: undefined,
+  });
+  assert.equal(normalizeConfig({ poll_interval: 5 }).pollInterval, 60);
+  assert.equal(normalizeConfig({ poll_interval: 9999 }).pollInterval, 900);
+  assert.equal(normalizeConfig({ poll_interval: 'x' }).pollInterval, 60);
 });
