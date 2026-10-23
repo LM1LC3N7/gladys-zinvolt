@@ -7,9 +7,11 @@
 // - system/batteries: `{ batteries: [{ id, name, serial_number }] }`;
 // - system/<id>/basic/current-state: `sn`, `name`, `onlineStatus` (ONLINE,
 //   OFFLINE), `smartMode` (DYNAMIC, CHARGED, PERFORMANCE, DEFAULT, FEED,
-//   CUSTOM, SELF_USE), `currentPower` (`soc` state of charge %, `pbt` battery
-//   power W, `ppv` solar power W, `pso` output of the socket W, `smp` power
-//   limit W, `onGrid`, `isDormancy`; only `onlineStatus` when offline),
+//   CUSTOM, SELF_USE), `currentPower` (`soc` state of charge %, `ppv` solar
+//   power W, `pso` power of the socket W (Home Assistant shows `0 - pso`),
+//   `smp` power limit W, `onGrid`, `isDormancy`; only `onlineStatus` when
+//   offline; `pbt`, `bpd` and `statistic` are not in the library's model and
+//   not used),
 //   `globalSettings` (`maxOutput` W, `batHighCap` %, `batUseCap` %,
 //   `maxChargePower` W, `standbyTime` min).
 //
@@ -80,9 +82,10 @@ export function nameOf(v) {
 }
 
 /**
- * The batteries of the account: `{ list: [{ key, id, serial, name }], more }`
- * (at most MAX_BATTERIES, `more` the number left out). An entry without a
- * usable identifier is skipped. Undefined when it is not such an answer.
+ * The batteries of the account: `{ list: [{ key, id, serial, name }], more,
+ * skipped }` (at most MAX_BATTERIES, `more` the number left out). An entry
+ * without a usable identifier is skipped (counted in `skipped`, said in the
+ * status). Undefined when it is not such an answer.
  */
 export function parseBatteries(answer) {
   const raw = own(answer, 'batteries');
@@ -92,9 +95,13 @@ export function parseBatteries(answer) {
   const list = [];
   const seen = new Set();
   let more = 0;
+  let skipped = 0;
   for (const entry of raw.slice(0, 200)) {
     const id = own(entry, 'id');
-    if (typeof id !== 'string' || !IDENTIFIER.test(id)) continue;
+    if (typeof id !== 'string' || !IDENTIFIER.test(id)) {
+      skipped += 1;
+      continue;
+    }
     const serial = serialOf(own(entry, 'serial_number'));
     const key = batteryKey({ serial, id });
     if (seen.has(key)) continue;
@@ -105,7 +112,7 @@ export function parseBatteries(answer) {
     }
     list.push({ key, id, serial, name: nameOf(own(entry, 'name')) });
   }
-  return { list, more };
+  return { list, more, skipped };
 }
 
 /** The smart modes of the library, as numbers for Gladys (forever). */
@@ -124,30 +131,46 @@ const ONLINE = { ONLINE: 1, OFFLINE: 0 };
 const upper = (v) => (typeof v === 'string' ? v.trim().toUpperCase() : undefined);
 
 /**
+ * The online state of an answer: 1 only when every status given says ONLINE
+ * (the top one and the one of `currentPower`), 0 when one says OFFLINE or
+ * anything else, undefined when neither is readable.
+ */
+function onlineOf(answer, power) {
+  const given = [own(answer, 'onlineStatus'), own(power, 'onlineStatus')]
+    .filter((s) => s !== undefined)
+    .map((s) => ONLINE[upper(s)]);
+  if (given.length === 0) return undefined;
+  return given.every((s) => s === 1) ? 1 : 0;
+}
+
+/**
  * A current state -> `{ sn, values }`. `sn` is the serial number it names
  * (empty when unreadable: that never means another battery). `values`: only
- * what came, checked; powers in W. Offline (or an online status that is not
- * ONLINE), no live value is taken: the last ones are never sent again as new.
+ * what came, checked; powers in W. Unless every status given says ONLINE, no
+ * live value is taken: the last ones are never sent again as new.
+ *
+ * Signs: the battery power follows Home Assistant (its Zinvolt sensor
+ * publishes `0 - pso`): > 0 when the battery supplies the home, < 0 when it
+ * takes power. `pbt` (not in the library's model) is not used. Both are to
+ * be confirmed on a real battery (TODO.md).
  */
 export function parseCurrentState(answer) {
   const power = own(answer, 'currentPower');
   const settings = own(answer, 'globalSettings');
   const v = {};
-  const status =
-    ONLINE[upper(own(answer, 'onlineStatus'))] ?? ONLINE[upper(own(power, 'onlineStatus'))];
+  const status = onlineOf(answer, power);
   v.online = status;
   if (status === 1) {
     v.soc = read(power, 'soc', 0, 100);
-    v.batteryPower = read(power, 'pbt', -POWER_MAX, POWER_MAX);
-    if (v.batteryPower !== undefined) {
-      // < 0 charging, > 0 discharging (to confirm on a real battery, TODO.md).
-      v.chargePower = v.batteryPower < 0 ? -v.batteryPower : 0;
-      v.dischargePower = v.batteryPower > 0 ? v.batteryPower : 0;
+    const pso = read(power, 'pso', -POWER_MAX, POWER_MAX);
+    if (pso !== undefined) {
+      v.batteryPower = pso === 0 ? 0 : -pso;
+      // The power the battery gives to the socket of the home (>= 0).
+      v.outputPower = Math.max(0, v.batteryPower);
     }
     // A solar input reads a few watts below 0 at night: 0, never the last value of the day.
     const pv = read(power, 'ppv', -200, POWER_MAX);
     v.pvPower = pv === undefined ? undefined : Math.max(0, pv);
-    v.outputPower = read(power, 'pso', -POWER_MAX, POWER_MAX);
     v.powerLimit = read(power, 'smp', 0, POWER_MAX);
     v.onGrid = flag(power, 'onGrid');
     v.dormant = flag(power, 'isDormancy');

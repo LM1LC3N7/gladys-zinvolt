@@ -169,13 +169,12 @@ export class ZinvoltClient {
    * A GET with the token of `session` (`{ token }`, kept in memory by the
    * app). Without a token, a login first. A token refused by an endpoint
    * (401/403) that did not come from a login of this very read is renewed
-   * once (`renewed`, shared by the read): never a loop, never more than one
-   * login per read. A token just given and refused is `denied`.
+   * once (`state.loggedIn`, shared by the read): never a loop, never more
+   * than one login per read. A token just given and refused is `denied`.
    */
   async authed(path, credentials, session, state) {
     if (!session.token) {
-      session.token = await this.login(credentials.email, credentials.password);
-      state.loggedIn = true;
+      session.token = await this.loginOnce(credentials, state);
     }
     try {
       return await this.request(path, { token: session.token });
@@ -184,17 +183,28 @@ export class ZinvoltClient {
         throw err;
       }
       session.token = undefined;
-      session.token = await this.login(credentials.email, credentials.password);
-      state.loggedIn = true;
+      session.token = await this.loginOnce(credentials, state);
       return this.request(path, { token: session.token });
+    }
+  }
+
+  /** The one login of a read; its errors are marked `login` (they stop the read). */
+  async loginOnce(credentials, state) {
+    state.loggedIn = true;
+    try {
+      return await this.login(credentials.email, credentials.password);
+    } catch (err) {
+      err.login = true;
+      throw err;
     }
   }
 
   /**
    * One read: the list of the batteries first (required: an error there
    * stops the read), then the current state of each one. A battery whose
-   * state fails with an error of the service (5xx, 401/403, an odd answer)
-   * is only left out (`missing`); a 429 stops the read; a network failure
+   * state fails with an error of the service (5xx, 401/403 after the one
+   * renewal of the token, an odd answer) is only left out (`missing`); a 429
+   * or an error of the login stops the read; a network failure
    * stops the remaining requests (kept: what came). `alive()` false (a
    * restart, a new configuration) stops between two requests.
    * @returns {Promise<{ batteries: { list, more }, states: Map<string, object>,
@@ -215,15 +225,20 @@ export class ZinvoltClient {
         break;
       }
       try {
-        const answer = await this.request(PATHS.currentState(battery.id), {
-          token: session.token,
-        });
+        // A token refused here is renewed once per read too (never a loop).
+        const answer = await this.authed(
+          PATHS.currentState(battery.id),
+          credentials,
+          session,
+          state,
+        );
         if (!isCurrentState(answer)) {
           throw new ZinvoltError('unknown_answer');
         }
         result.states.set(battery.key, answer);
       } catch (err) {
-        if (err.code === 'rate_limited') {
+        // A 429, or an error of the login (refused, paused...), stops the read.
+        if (err.code === 'rate_limited' || err.login) {
           throw err;
         }
         result.missing.push(battery.key);

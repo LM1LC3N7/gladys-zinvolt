@@ -89,6 +89,10 @@ test('the configuration matches the code; the password is a secret, kept, never 
   assert.equal(fields.password.type, 'secret');
   assert.match(fields.password.description.en, /Kept by Gladys in its database, never shown again/);
   assert.match(fields.password.description.fr, /Gardé par Gladys dans sa base, jamais réaffiché/);
+  // Saving the same refused password tries nothing: the field must not promise it does.
+  assert.match(fields.password.description.en, /saving the same one again tries nothing/);
+  assert.match(fields.password.description.fr, /réenregistrer le même ne relance rien/);
+  assert.doesNotMatch(fields.password.description.fr, /enregistriez de nouveau/);
   assert.equal(fields.poll_interval.type, 'number');
   assert.equal(fields.poll_interval.default, POLL_DEFAULT);
   assert.equal(fields.poll_interval.min, POLL_MIN);
@@ -132,6 +136,7 @@ test('the code never feeds the energy monitoring, nor publishes a scene event', 
 const UNITS_BY_CATEGORY = {
   [C.BATTERY_STORAGE]: [U.PERCENT, U.WATT, U.KILOWATT, U.WATT_HOUR, U.KILOWATT_HOUR],
   [C.ENERGY_PRODUCTION_SENSOR]: [U.WATT, U.KILOWATT, U.WATT_HOUR, U.KILOWATT_HOUR],
+  [C.HOME_OUTPUT_SENSOR]: [U.WATT, U.KILOWATT, U.WATT_HOUR, U.KILOWATT_HOUR],
   [C.UNKNOWN]: [],
 };
 
@@ -160,6 +165,17 @@ test('every feature uses a unit the core accepts for its category; keys unique; 
   ]);
   assert.ok(!CATALOG.some((e) => e.spec.category !== C.UNKNOWN && indexTypes.has(e.spec.type)));
   assert.ok(!CATALOG.some((e) => /daily|thirty/.test(e.spec.type)));
+  // The sign of the battery power is not confirmed: no typed charge/discharge power (review 1).
+  assert.ok(
+    !CATALOG.some(
+      (e) =>
+        e.spec.type === TYPES.BATTERY_STORAGE.CHARGE_POWER ||
+        e.spec.type === TYPES.BATTERY_STORAGE.DISCHARGE_POWER,
+    ),
+  );
+  const output = CATALOG.find((e) => e.key === 'output_power').spec;
+  assert.equal(output.category, C.HOME_OUTPUT_SENSOR);
+  assert.equal(output.type, TYPES.HOME_OUTPUT_SENSOR.POWER);
   // Never a switch nor a binary: nothing an "all off" could reach.
   assert.ok(!CATALOG.some((e) => /switch|binary/.test(`${e.spec.category} ${e.spec.type}`)));
 });

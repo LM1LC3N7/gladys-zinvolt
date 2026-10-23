@@ -67,6 +67,33 @@ test('a token refused later: one new login in the read, never a loop', async () 
   assert.equal(fake.calls.filter((x) => x.path === 'login').length, 2);
 });
 
+test('a token refused by a battery state only: renewed once in the read, never more', async () => {
+  const routes = account();
+  const { fake, client: c } = client(routes);
+  const session = { token: TOKEN };
+  // The list takes the old token, the state refuses it: one login, the state again.
+  let refuse = true;
+  const inner = routes[`GET system/${ID1}/basic/current-state`];
+  routes[`GET system/${ID1}/basic/current-state`] = (call) =>
+    refuse && call.init.headers.Authorization === `Bearer ${TOKEN}`
+      ? json({}, 401)
+      : inner({ ...call, init: { ...call.init, headers: { Authorization: `Bearer ${TOKEN}` } } });
+  routes.state.issued = TOKEN2;
+  const result = await c.readAll(CREDENTIALS, session);
+  assert.equal(fake.calls.filter((x) => x.path === 'login').length, 1);
+  assert.equal(session.token, TOKEN2);
+  assert.ok(result.states.has(SN1));
+  // Refused again after the renewal: only left out, no second login.
+  refuse = false;
+  routes[`GET system/${ID1}/basic/current-state`] = () => json({}, 403);
+  const again = await c.readAll(CREDENTIALS, { token: TOKEN });
+  assert.deepEqual(again.missing, [SN1]);
+  assert.equal(fake.calls.filter((x) => x.path === 'login').length, 2);
+  // A login refused during that renewal stops the read (refused, final in the app).
+  routes.state.login = () => json({}, 401);
+  await assert.rejects(c.readAll(CREDENTIALS, { token: TOKEN }), { code: 'refused' });
+});
+
 test('the login refuses the credentials: refused (400, 401, 403, 422); 429 and 5xx are not', async () => {
   for (const status of [400, 401, 403, 422]) {
     const routes = account({ login: () => json({ message: 'no' }, status) });
@@ -127,5 +154,5 @@ test('read-only: the client has no method that writes, the only POST is the logi
   assert.equal((source.match(/method: 'POST'/g) ?? []).length, 1);
   assert.doesNotMatch(source, /switch-smart-mode|global-settings|operation\//);
   const proto = Object.getOwnPropertyNames(ZinvoltClient.prototype).sort();
-  assert.deepEqual(proto, ['authed', 'constructor', 'login', 'readAll', 'request']);
+  assert.deepEqual(proto, ['authed', 'constructor', 'login', 'loginOnce', 'readAll', 'request']);
 });

@@ -13,10 +13,15 @@
 
 ## To confirm on a real battery (built without one)
 
-- [ ] The sign of `pbt` (battery power): taken as < 0 charging (the library's
-      fixture: -19 W at 100 % with no solar, the stand-by draw). Not in the
-      library's model: only in its test answer.
-- [ ] The sign and meaning of `pso` (socket output), published as reported.
+- [ ] The sign of `pso`: the battery power is published as `0 - pso` (> 0
+      supplying), after Home Assistant (its Zinvolt `sensor.py`), and the
+      power to the home socket as its positive part.
+      Once confirmed, add typed `battery-storage` charge and discharge powers
+      (review 1, I1: none in v1, a wrong sign would fill their history).
+- [ ] The meaning of `pbt` (equal to `pso` in the library's fixture, not in
+      its model, not used).
+- [ ] The token refused by `current-state` only (the list accepts it):
+      renewed once per read, then the battery is "not read" (review 1, M5).
 - [ ] The status of a wrong password at the login (401 in the library's
       tests; 400, 403 and 422 are taken as refusals too).
 - [ ] How long the token lives (the fixture JWT has no `exp`): renewed on a
@@ -49,9 +54,18 @@
 - **No energy index**: the API gives no energy counter (kWh), only powers;
   no energy is ever made up from a power (a sum of samples would drift and
   be counted by the core). No `index`, no `daily-*`, never
-  `publishEnergyConsumption`. The powers are `battery-storage` (charge,
-  discharge, level), `energy-production-sensor` / `power` (solar) or plain
-  sensors (`unknown`, unit in the name).
+  `publishEnergyConsumption`. The level is `battery-storage`, the solar
+  power `energy-production-sensor` / `power`, the power to the home socket
+  `home-output-sensor` / `power` (>= 0), the rest plain sensors (`unknown`,
+  unit in the name).
+- **Battery power sign (review 1, I1)**: `pbt` is not in the library's
+  model and its sign is not established; Home Assistant publishes
+  `0 - pso` (> 0 = the battery supplies). v1 publishes one signed battery
+  power `battery_power` = `0 - pso` as a plain sensor ("sign to confirm" in
+  its name and the docs), and `output_power` = its positive part as
+  `home-output-sensor` / `power`. No typed `battery-storage` charge or
+  discharge power until the sign is confirmed (a wrong one would fill their
+  history forever).
 - **External id**: `battery:<serial number>` in upper case, from
   `serial_number` of the list (letters, digits, `-`, `_`, 4 to 40). Without a
   readable serial number, the readable fallback `battery:id-<identifier>`
@@ -61,11 +75,16 @@
   number of the battery it was asked for; another one is left out (nothing
   published, noted in the status); an unreadable `sn` is not "another
   battery".
-- **10 batteries at most** per account (16 states each, within the 270
-  states per minute at 60 s); the others are counted in the status.
-- **Offline**: `onlineStatus` other than `ONLINE` gives no live value (the API
-  then sends only the status); the online state and the settings are still
-  published. Never a stale value published as new.
+- **10 batteries at most** per account (14 states each, within the 270
+  states per minute at 60 s); the others are counted in the status. An entry
+  without a readable identifier is left out and counted in the status
+  (review 1, M3).
+- **Offline** (review 1, M2): live values only when every online status given
+  (the top one and the one of `currentPower`) says `ONLINE`; one other value
+  gives `online` = 0, none readable gives no `online` at all; in both cases
+  no live value, the battery named in the status note "offline or online
+  state unknown". The settings are still published. Never a stale value
+  published as new.
 - **Pace**: one read = the list + one state per battery (+ a login when
   needed), 60 s by default (60-900 s, a cloud service). The timer looks every
   5 s whether a read is due; nothing reads sooner than the last request + the
@@ -77,18 +96,25 @@
   read that ends after a restart or a new configuration publishes nothing and
   sets no status.
 - **Credentials refused** (login 400/401/403/422): final, as in the lot 12
-  rule (an account could get locked by repeated tries): `{ count, status,
-fp }` in `/data`, never tried again by itself, not after a restart either;
-  the test button may try once per click when the pace allows it; saving
-  other credentials tries at once. `fp` is a salted scrypt fingerprint
-  (random salt per file) of the refused e-mail and password only, erased by
-  the first success: nothing in `/data` can confirm a working password.
+  rule (an account could get locked by repeated tries):
+  `{ count, status, kind, fp }` in `/data`, never tried again by itself, not after a restart
+  either; the test button may try once per click when the pace allows it;
+  saving other credentials tries at once, saving the same ones tries nothing
+  (the status and the password field say so, review 1, I3). `fp` is a salted
+  scrypt fingerprint (random salt per file) of the refused e-mail and
+  password only, erased by the first success: nothing in `/data` can confirm
+  a working password.
+- **Access to the API refused** (review 1, I2): the list refuses (401/403)
+  the token its login of the same read just gave (e.g. an account without
+  the `api:public` ability): the same final stop (`kind: 'denied'`, its own
+  text), never a login in a loop, lifted only by a success of the test
+  button or by other credentials.
 - **Token**: kept in memory only (never in `/data`), reused across reads and
   reconnections; dropped when the credentials change. A 401/403 of the list
-  with an old token gives one new login in the same read, never more; a token
-  refused right after its login is `denied` (a plain failure, spaced
-  retries), not a refusal of the credentials. The token's `exp` is not read
-  (no clock of the service compared to ours).
+  or of a battery state with an old token gives one new login in the same
+  read, never more (review 1, M5); a battery state still refused after it is
+  only left out. The token's `exp` is not read (no clock of the service
+  compared to ours).
 - **429 / 5xx**: of the login or the list (or a 429 anywhere): pause
   `{ until, count, code, status }` in `/data`, from Retry-After or 1 min
   doubled, 1 min - 6 h, at least the interval, end capped when read back. A
@@ -113,6 +139,11 @@ fp }` in `/data`, never tried again by itself, not after a restart either;
 - **Gladys version**: `>=5.2.0`, like the other energy integrations.
 
 ## Ideas
+
+- `bpd` (2119 in the library's fixture, unknown meaning, maybe a daily
+  total in Wh) and `statistic.totalCapacity` of `current-state`: if `bpd` is
+  a total of the day, build an index with the published `dailyIndex`
+  mechanism of gladys-imeon (review 1, M1). Nothing published in v1.
 
 - The photovoltaic inputs one by one (`basic/pv-data`), the units and their
   firmware (`unit`), the last upload time (`connection-status`).

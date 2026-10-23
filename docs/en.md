@@ -14,9 +14,13 @@ battery.
 One device per battery of the account (10 at most), with:
 
 - state of charge (%);
-- charge and discharge power (W), and the battery power as reported (W,
-  negative while charging);
-- solar power (W) and the power of the socket output (W, as reported);
+- the battery power (W, signed): positive when the battery supplies the
+  home, negative when it takes power. This sign follows Home Assistant (its
+  Zinvolt sensor shows the opposite of the `pso` value of the API) and is
+  **still to be confirmed** on a real battery; that is why there is no
+  separate "charge power" and "discharge power" in this version;
+- solar power (W), and the power given to the home socket (W, 0 when the
+  battery takes power, same sign to confirm);
 - online, on grid and dormant states (1 = yes, 0 = no);
 - the smart mode (0 = default, 1 = self use, 2 = dynamic, 3 = charged,
   4 = performance, 5 = feed, 6 = custom);
@@ -30,8 +34,9 @@ limits nor anything else of the battery.
 integration adds nothing to the energy monitoring of Gladys and never makes
 up an energy from a power.
 
-An offline battery only gets its online state and its settings: its last
-live values are never sent again as new ones.
+An offline battery (or one whose online state is unknown or contradictory)
+only gets its online state and its settings: its last live values are never
+sent again as new ones.
 
 ## Configuration
 
@@ -50,7 +55,14 @@ live values are never sent again as new ones.
   time of the last request is kept in `/data`).
 - **Refused e-mail or password**: the reads stop and stay stopped, even after
   a restart; there is no new automatic try (an account could get locked).
-  Save the right password, or click **Test the connection** to try once.
+  Enter another password, or click **Test the connection** to try once:
+  saving the same password again tries nothing.
+- **Account accepted but access to the API refused** (the service refuses
+  the session it has just opened, for instance an account without access to
+  the API): the same final stop, kept in `/data`, never a login in a loop.
+  Check the account in the Zinvolt app, then click **Test the connection**,
+  or enter other credentials.
+- An expired session gets one new login per read at most.
 - **Too many requests or an error of the service**: the reads pause from 1
   minute to 6 hours (kept in `/data`). A battery that fails alone is only left
   out of that read.
@@ -58,10 +70,11 @@ live values are never sent again as new ones.
   fingerprint of the account, and of refused credentials while they are
   refused.
 - Each answer must name the serial number of the battery it was asked for;
-  an answer naming another one is left out.
+  an answer naming another one is left out. A battery listed without a
+  readable identifier is left out too, and the status says so.
 
 ## Troubleshooting
 
 - The status of the integration says what happened and when the next read is.
-- The values look inverted (charging shown as discharging)? The sign of the
-  battery power has not been checked on a real battery yet: please report it.
+- The battery power looks inverted (positive while charging)? Its sign has
+  not been checked on a real battery yet: please report it.

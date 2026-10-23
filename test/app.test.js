@@ -121,10 +121,10 @@ test('a created battery gets its values; read-only; never the energy consumption
   await app.start(CONFIG);
   await app.idle();
   assert.equal(last(gladys, 'soc'), 100);
-  assert.equal(last(gladys, 'charge_power'), 19);
-  assert.equal(last(gladys, 'discharge_power'), 0);
-  assert.equal(last(gladys, 'battery_power'), -19);
-  assert.equal(last(gladys, 'output_power'), -19);
+  assert.equal(last(gladys, 'charge_power'), undefined, 'no typed charge power in v1');
+  assert.equal(last(gladys, 'discharge_power'), undefined);
+  assert.equal(last(gladys, 'battery_power'), 19, '0 - pso, as Home Assistant');
+  assert.equal(last(gladys, 'output_power'), 19);
   assert.equal(last(gladys, 'online'), 1);
   assert.equal(last(gladys, 'smart_mode'), 3);
   assert.equal(last(gladys, 'lower_limit'), 10);
@@ -259,7 +259,7 @@ test('429 and 5xx of the list: a pause kept in /data; a battery failing only lef
   assert.equal(reads(fake), 2);
   assert.equal(store.data.pause, null);
   assert.match(status(gladys).message.en, new RegExp(`Not read this time: ${SN1}`));
-  assert.match(status(gladys).message.en, new RegExp(`Offline for Zinvolt: ${SN2}`));
+  assert.match(status(gladys).message.en, new RegExp(`online state unknown for Zinvolt: ${SN2}`));
   assert.ok(PAUSE_MIN <= 10 * MINUTE);
 });
 
@@ -272,7 +272,7 @@ test('an offline battery sends no live value, only its state and settings', asyn
   await app.idle();
   assert.equal(last(gladys, 'online', device), 0);
   assert.equal(last(gladys, 'soc', device), undefined);
-  assert.equal(last(gladys, 'charge_power', device), undefined);
+  assert.equal(last(gladys, 'battery_power', device), undefined);
   assert.equal(last(gladys, 'max_charge_power', device), 2000);
 });
 
@@ -284,6 +284,84 @@ test('identity: a state naming another serial number publishes nothing for that 
   await app.idle();
   assert.equal(gladys.fake.states.length, 0);
   assert.match(status(gladys).message.en, /another serial number, left out: ZVG011025120088/);
+});
+
+test('a token refused right after its login: final stop in /data, never a login in a loop', async () => {
+  const store = createMemoryStore();
+  const clock = { now: NOW };
+  const routes = account();
+  routes.state.issued = 'eyJhIjoiYiJ9.eyJub2FwaSI6MX0.c2ln'; // the list never takes it
+  const { app, gladys, fake, tick } = await setup({ routes, store, clock });
+  await app.start(CONFIG);
+  await app.idle();
+  assert.equal(logins(fake), 1);
+  assert.equal(store.data.refusal.kind, 'denied');
+  assert.equal(status(gladys).connected, false);
+  assert.match(status(gladys).message.en, /accepts the account but refuses its access to the API/);
+  await tick(24 * 60 * MINUTE);
+  assert.equal(logins(fake), 1, 'no new login in 24 h');
+  // After a restart, and after saving the same credentials: nothing.
+  const again = await setup({ routes, store, clock });
+  await again.app.start(CONFIG);
+  await again.app.idle();
+  await again.app.start(CONFIG, { fresh: true });
+  await again.app.idle();
+  await again.tick(6 * 60 * MINUTE);
+  assert.equal(again.fake.calls.length, 0);
+  // The test button: one try per click; fixed on the service side, it lifts the stop.
+  routes.state.issued = TOKEN;
+  const answer = (await again.gladys.fake.action(ACTIONS.TEST)).data.message;
+  assert.match(answer.fr, /Compte Zinvolt accepté/);
+  assert.equal(store.data.refusal, null);
+  assert.equal(status(again.gladys).connected, true);
+});
+
+test('the refusal status says that saving the same password again tries nothing', async () => {
+  const config = { email: EMAIL, password: 'wrong password' };
+  const { app, gladys, fake } = await setup({ config });
+  await app.start(config);
+  await app.idle();
+  assert.match(
+    status(gladys).message.en,
+    /enter another password \(saving the same one again tries nothing\)/,
+  );
+  assert.match(status(gladys).message.fr, /réenregistrer le même ne relance rien/);
+  await app.start(config, { fresh: true });
+  await app.idle();
+  assert.equal(logins(fake), 1);
+});
+
+test('a battery without a readable identifier is said in the status, not "no battery"', async () => {
+  const routes = account({
+    batteries: { batteries: [{ id: '../../login', serial_number: 'ZVG1234', name: 'x' }] },
+  });
+  const { app, gladys } = await setup({ routes });
+  await app.start(CONFIG);
+  await app.idle();
+  assert.doesNotMatch(status(gladys).message.en, /No battery in this account/);
+  assert.match(
+    status(gladys).message.en,
+    /1 battery\(ies\) of the account left out: unreadable identifier/,
+  );
+});
+
+test('contradictory online flags: nothing live published, said in the status', async () => {
+  const routes = account();
+  routes.state.states[ID1] = () => {
+    const state = onlineState();
+    state.currentPower.onlineStatus = 'OFFLINE';
+    return json(state);
+  };
+  const { app, gladys } = await setup({ routes, devices: [created()] });
+  await app.start(CONFIG);
+  await app.idle();
+  assert.equal(last(gladys, 'online'), 0);
+  assert.equal(last(gladys, 'soc'), undefined);
+  assert.equal(last(gladys, 'battery_power'), undefined);
+  assert.match(
+    status(gladys).message.en,
+    /Offline or online state unknown for Zinvolt: ZVG011025120088/,
+  );
 });
 
 test('an expired token: one new login in the read, then the values', async () => {

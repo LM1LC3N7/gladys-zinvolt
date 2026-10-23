@@ -22,8 +22,8 @@ const REASON = {
   unreachable: { en: 'unreachable', fr: 'injoignable' },
   refused: { en: 'e-mail or password refused', fr: 'e-mail ou mot de passe refusé' },
   denied: {
-    en: 'access refused right after the login',
-    fr: 'accès refusé juste après la connexion',
+    en: 'account accepted but access to the API refused',
+    fr: 'compte accepté mais accès à l’API refusé',
   },
   http: { en: 'HTTP error', fr: 'erreur HTTP' },
   server: { en: 'error of the Zinvolt service', fr: 'erreur du service Zinvolt' },
@@ -72,10 +72,16 @@ export const T = {
     en: `Zinvolt: next read at ${clock(at)}.`,
     fr: `Zinvolt : prochaine lecture à ${clock(at)}.`,
   }),
-  refused: (refusal) => ({
-    en: `Zinvolt refuses the e-mail or the password (HTTP ${refusal.status}). Reads stopped, no new automatic try: check them in the Zinvolt app, save them again, or click "Test the connection" to try once.`,
-    fr: `Zinvolt refuse l’e-mail ou le mot de passe (HTTP ${refusal.status}). Lectures arrêtées, aucun nouvel essai automatique : vérifiez-les dans l’application Zinvolt, enregistrez-les de nouveau, ou cliquez sur « Tester la connexion » pour un essai.`,
-  }),
+  refused: (refusal) =>
+    refusal.kind === 'denied'
+      ? {
+          en: `Zinvolt accepts the account but refuses its access to the API (HTTP ${refusal.status}). Reads stopped, no new automatic try: check the account in the Zinvolt app, then click "Test the connection" to try once, or enter other credentials (saving the same ones again tries nothing).`,
+          fr: `Zinvolt accepte le compte mais refuse son accès à l’API (HTTP ${refusal.status}). Lectures arrêtées, aucun nouvel essai automatique : vérifiez le compte dans l’application Zinvolt, puis cliquez sur « Tester la connexion » pour un essai, ou saisissez d’autres identifiants (réenregistrer les mêmes ne relance rien).`,
+        }
+      : {
+          en: `Zinvolt refuses the e-mail or the password (HTTP ${refusal.status}). Reads stopped, no new automatic try: enter another password (saving the same one again tries nothing), or click "Test the connection" to try once.`,
+          fr: `Zinvolt refuse l’e-mail ou le mot de passe (HTTP ${refusal.status}). Lectures arrêtées, aucun nouvel essai automatique : saisissez un autre mot de passe (réenregistrer le même ne relance rien), ou cliquez sur « Tester la connexion » pour un essai.`,
+        },
   failing: (err, wait) => ({
     en: `The Zinvolt account could not be read (${reason(err).en}): new try in ${delay(wait).en}.`,
     fr: `Le compte Zinvolt n’a pas pu être lu (${reason(err).fr}) : nouvel essai dans ${delay(wait).fr}.`,
@@ -106,8 +112,12 @@ export const T = {
       fr: `Non lu cette fois : ${names(list)} ; les autres valeurs sont à jour.`,
     }),
     offline: (list) => ({
-      en: `Offline for Zinvolt: ${names(list)} (no live value sent).`,
-      fr: `Hors ligne pour Zinvolt : ${names(list)} (aucune valeur en direct envoyée).`,
+      en: `Offline or online state unknown for Zinvolt: ${names(list)} (no live value sent).`,
+      fr: `Hors ligne ou état en ligne inconnu pour Zinvolt : ${names(list)} (aucune valeur en direct envoyée).`,
+    }),
+    skipped: (count) => ({
+      en: `${count} battery(ies) of the account left out: unreadable identifier.`,
+      fr: `${count} batterie(s) du compte laissée(s) de côté : identifiant illisible.`,
     }),
     mismatch: (list) => ({
       en: `Answer naming another serial number, left out: ${names(list)}.`,

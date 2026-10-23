@@ -8,12 +8,15 @@
 // rules of this project): the API gives NO energy counter (no kWh at all),
 // only powers; none is ever made up from a power. So no `index`, no
 // `daily-*`, never publishEnergyConsumption: the energy monitoring of Gladys
-// is left to the main meter. The powers are plain sensors or battery-storage
-// / energy-production-sensor powers.
+// is left to the main meter. The signed battery power is a plain sensor (its
+// sign follows Home Assistant, `0 - pso`, to confirm); the solar power is
+// energy-production-sensor / power, the power given to the home socket
+// home-output-sensor / power (>= 0).
 //
 // Units: only the ones the core lists for the category
-// (DEVICE_FEATURE_UNITS_BY_CATEGORY): %, W for battery-storage, W for
-// energy-production-sensor, none for unknown (the unit is then in the name).
+// (DEVICE_FEATURE_UNITS_BY_CATEGORY): % for battery-storage, W for
+// energy-production-sensor and home-output-sensor, none for unknown (the unit
+// is then in the name).
 // -----------------------------------------------------------------------------
 
 import {
@@ -26,8 +29,6 @@ import { EXTERNAL_ID_TYPE, POWER_MAX } from './constants.js';
 /** Feature keys (forever). */
 export const FEATURE = {
   SOC: 'soc',
-  CHARGE_POWER: 'charge_power',
-  DISCHARGE_POWER: 'discharge_power',
   BATTERY_POWER: 'battery_power',
   PV_POWER: 'pv_power',
   OUTPUT_POWER: 'output_power',
@@ -65,23 +66,16 @@ export const CATALOG = [
     unit: U.PERCENT,
     max: 100,
   }),
-  def(
-    FEATURE.CHARGE_POWER,
-    'chargePower',
-    0,
-    watts('Charge power', C.BATTERY_STORAGE, T.BATTERY_STORAGE.CHARGE_POWER),
-  ),
-  def(
-    FEATURE.DISCHARGE_POWER,
-    'dischargePower',
-    0,
-    watts('Discharge power', C.BATTERY_STORAGE, T.BATTERY_STORAGE.DISCHARGE_POWER),
-  ),
+  // No typed charge / discharge power in v1: the sign is not established on a
+  // real battery, and a wrong one would fill their history forever.
   def(
     FEATURE.BATTERY_POWER,
     'batteryPower',
     0,
-    plain('Battery power (W, < 0 charging)', { min: -POWER_MAX, max: POWER_MAX }),
+    plain('Battery power (W, > 0 supplying, < 0 taking, sign to confirm)', {
+      min: -POWER_MAX,
+      max: POWER_MAX,
+    }),
   ),
   def(
     FEATURE.PV_POWER,
@@ -93,7 +87,7 @@ export const CATALOG = [
     FEATURE.OUTPUT_POWER,
     'outputPower',
     0,
-    plain('Socket output power (W, as reported)', { min: -POWER_MAX, max: POWER_MAX }),
+    watts('Power to the home socket', C.HOME_OUTPUT_SENSOR, T.HOME_OUTPUT_SENSOR.POWER),
   ),
   def(FEATURE.POWER_LIMIT, 'powerLimit', 0, plain('System power limit (W)', { max: POWER_MAX })),
   def(FEATURE.ONLINE, 'online', 0, code('Online (1 = yes, 0 = no)', 1)),

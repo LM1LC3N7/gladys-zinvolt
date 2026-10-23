@@ -402,7 +402,7 @@ export class ZinvoltApp {
     this.kept.pause = null;
     // The fingerprint of refused credentials goes with the first success.
     this.kept.refusal = null;
-    const { list, more } = answers.batteries;
+    const { list, more, skipped = 0 } = answers.batteries;
     this.kept.batteries = list;
     const mono = this.monotonic();
     const offline = [];
@@ -419,7 +419,8 @@ export class ZinvoltApp {
         mismatch.push(label);
         continue;
       }
-      if (v.online === 0) offline.push(label);
+      // Offline, or its online state unknown: no live value is published.
+      if (v.online !== 1) offline.push(label);
       values.set(battery.key, { values: v, at: mono });
       read.push(battery.key);
     }
@@ -431,6 +432,7 @@ export class ZinvoltApp {
       offline,
       mismatch,
       more,
+      skipped,
     };
     await this.saveState();
     if (!alive()) return;
@@ -456,12 +458,15 @@ export class ZinvoltApp {
     if (code === 'refused' || code === 'denied') {
       session.token = undefined;
     }
-    if (code === 'refused') {
-      // Final: no new automatic try (an account may lock after a few).
+    if (code === 'refused' || code === 'denied') {
+      // Final: no new automatic try (an account may lock after a few). `denied`
+      // (the list refuses the token its login just gave: an account without
+      // access to the API) is final too, never a login in a loop.
       const count = (this.kept.refusal?.count ?? 0) + 1;
       this.kept.refusal = {
         count: Math.min(count, 32),
         status: Number.isInteger(err.status) ? err.status : 401,
+        kind: code,
         fp: credentialsOf(this.kept.salt, credentials.email, credentials.password),
       };
     } else if (code === 'rate_limited' || code === 'server') {
@@ -562,10 +567,11 @@ export class ZinvoltApp {
       }
       return;
     }
-    const { count, missing, offline, mismatch, more } = this.lastRead;
+    const { count, missing, offline, mismatch, more, skipped } = this.lastRead;
     const notes = [];
-    if (count === 0) notes.push(T.notes.none);
-    else if (this.kept.batteries.some((b) => !this.createdDevice(b.key))) {
+    if (count === 0 && skipped === 0) notes.push(T.notes.none);
+    if (skipped > 0) notes.push(T.notes.skipped(skipped));
+    if (this.kept.batteries.some((b) => !this.createdDevice(b.key))) {
       notes.push(T.notes.noDevice);
     }
     if (missing.length > 0) notes.push(T.notes.missing(missing));
@@ -612,7 +618,7 @@ export class ZinvoltApp {
       !this.lastError &&
       !this.kept.refusal;
     if (this.kept.refusal) {
-      lines.push(T.test.failed({ code: 'refused', status: this.kept.refusal.status }));
+      lines.push(T.test.failed({ code: this.kept.refusal.kind, status: this.kept.refusal.status }));
     } else if (this.kept.pause && this.now() < this.kept.pause.until) {
       lines.push(T.test.failed(this.kept.pause));
     } else if (this.lastError) {

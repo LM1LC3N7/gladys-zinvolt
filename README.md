@@ -3,8 +3,8 @@
 Unofficial [Gladys Assistant](https://gladysassistant.com) integration for
 **Zinvolt** batteries. It reads the batteries of a Zinvolt account through the
 Zinvolt cloud service (e-mail and password of the app) every 60 seconds:
-state of charge, charge and discharge power, solar power, socket output,
-online and grid state, smart mode and settings. **Read-only**: it never
+state of charge, battery power (sign to confirm), solar power, power to the
+home socket, online and grid state, smart mode and settings. **Read-only**: it never
 changes the mode, the output nor the charge limits. No energy counter (the
 API gives powers only).
 

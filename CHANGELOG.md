@@ -17,13 +17,16 @@ the notes of the version's GitHub Release.
   list of the batteries, current state of each one, every 60 s by default
   (60 to 900 s). Read-only: no mode, output or limit is ever sent.
 - One device per battery (10 at most), its external id from the serial
-  number: state of charge, charge and discharge power, battery power, solar
-  power, socket output power, power limit, online, on grid and dormant
-  states, smart mode, maximum output, charge upper and discharge lower
-  limits, maximum charge power, standby time. No energy index: the API has no
-  energy counter.
-- An offline battery only gets its online state and its settings; an answer
-  naming another serial number is left out.
+  number: state of charge, one signed battery power (the sign of Home
+  Assistant, `0 - pso`, still to confirm: no typed charge or discharge power
+  yet), solar power, power given to the home socket (`home-output-sensor`),
+  power limit, online, on grid and dormant states, smart mode, maximum
+  output, charge upper and discharge lower limits, maximum charge power,
+  standby time. No energy index: the API has no energy counter.
+- A battery offline, or whose online flags are missing or contradict each
+  other, only gets its online state and its settings; an answer naming
+  another serial number is left out; a battery listed without a readable
+  identifier is left out and counted in the status.
 - Never a read faster than the interval: not the test button, Discovery, a
   reconnection, a save of an unchanged configuration nor a restart (the last
   request is kept in `/data`, written at most once a minute). A read that
@@ -31,7 +34,10 @@ the notes of the version's GitHub Release.
 - Refused credentials stop the reads for good, kept in `/data` (a salted
   fingerprint of the refused credentials only, erased by the first success):
   no automatic try, the test button tries once per click, new credentials are
-  tried at once. An expired session gets one new login per read at most.
+  tried at once; saving the same ones again tries nothing. An account whose
+  access to the API is refused right after its login is stopped the same
+  way. An expired session gets one new login per read at most (the list or
+  a battery state).
   HTTP 429 and 5xx of the login or the list pause the reads from 1 minute to
   6 hours; an error of one battery only leaves it out. Answers bounded to
   64 KiB, no redirect followed, no secret logged nor kept in `/data`.

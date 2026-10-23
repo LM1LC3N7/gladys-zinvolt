@@ -99,7 +99,11 @@ export function validPause(pause, now, max) {
   };
 }
 
-/** A refusal read back: `{ count, status, fp }` (final: no end, only a new gesture lifts it). */
+/**
+ * A refusal read back: `{ count, status, kind, fp }` (final: no end, only a
+ * new gesture lifts it). `kind`: 'refused' (the login refuses the
+ * credentials) or 'denied' (the API refuses the token its login just gave).
+ */
 export function validRefusal(refusal) {
   if (
     !isObject(refusal) ||
@@ -113,6 +117,7 @@ export function validRefusal(refusal) {
   return {
     count: Math.min(refusal.count, 32),
     status: Number.isInteger(refusal.status) ? refusal.status : 401,
+    kind: refusal.kind === 'denied' ? 'denied' : 'refused',
     fp: refusal.fp,
   };
 }

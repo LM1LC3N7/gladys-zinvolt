@@ -18,8 +18,8 @@
       "type": "section",
       "label": { "en": "Zinvolt", "fr": "Zinvolt" },
       "description": {
-        "en": "Unofficial connector, not affiliated with Zinvolt. It reads the batteries of your Zinvolt account through the Zinvolt cloud service, with the e-mail and password of the Zinvolt app, every 60 seconds: state of charge, charge and discharge power, solar power, output power, online and grid state, smart mode and settings. Read-only: it never changes the mode, the output or the charge limits. No energy counter: the API gives powers only. Never tested with a real device.",
-        "fr": "Connecteur non officiel, sans lien avec Zinvolt. Il lit les batteries de votre compte Zinvolt par le service cloud de Zinvolt, avec l’e-mail et le mot de passe de l’application Zinvolt, toutes les 60 secondes : niveau de charge, puissances de charge et de décharge, puissance solaire, puissance de sortie, état en ligne et réseau, mode intelligent et réglages. Lecture seule : il ne change jamais le mode, la sortie ni les limites de charge. Aucun compteur d’énergie : l’API ne donne que des puissances. Jamais testé avec un vrai appareil."
+        "en": "Unofficial connector, not affiliated with Zinvolt. It reads the batteries of your Zinvolt account through the Zinvolt cloud service, with the e-mail and password of the Zinvolt app, every 60 seconds: state of charge, battery power (sign to confirm), solar power, power to the home socket, online and grid state, smart mode and settings. Read-only: it never changes the mode, the output or the charge limits. No energy counter: the API gives powers only. Never tested with a real device.",
+        "fr": "Connecteur non officiel, sans lien avec Zinvolt. Il lit les batteries de votre compte Zinvolt par le service cloud de Zinvolt, avec l’e-mail et le mot de passe de l’application Zinvolt, toutes les 60 secondes : niveau de charge, puissance de la batterie (signe à confirmer), puissance solaire, puissance fournie à la prise de la maison, état en ligne et réseau, mode intelligent et réglages. Lecture seule : il ne change jamais le mode, la sortie ni les limites de charge. Aucun compteur d’énergie : l’API ne donne que des puissances. Jamais testé avec un vrai appareil."
       },
       "links": [
         {
@@ -49,8 +49,8 @@
       "required": true,
       "label": { "en": "Password of the Zinvolt account", "fr": "Mot de passe du compte Zinvolt" },
       "description": {
-        "en": "Kept by Gladys in its database, never shown again; sent only to the Zinvolt service, in its login request, never logged. If Zinvolt refuses it, the reads stop until you save it again or click the test button.",
-        "fr": "Gardé par Gladys dans sa base, jamais réaffiché ; envoyé seulement au service Zinvolt, dans sa requête de connexion, jamais journalisé. Si Zinvolt le refuse, les lectures s’arrêtent jusqu’à ce que vous l’enregistriez de nouveau ou cliquiez sur le bouton de test."
+        "en": "Kept by Gladys in its database, never shown again; sent only to the Zinvolt service, in its login request, never logged. If Zinvolt refuses it, the reads stop with no automatic try: enter another password (saving the same one again tries nothing), or click the test button to try once.",
+        "fr": "Gardé par Gladys dans sa base, jamais réaffiché ; envoyé seulement au service Zinvolt, dans sa requête de connexion, jamais journalisé. Si Zinvolt le refuse, les lectures s’arrêtent sans nouvel essai automatique : saisissez un autre mot de passe (réenregistrer le même ne relance rien), ou cliquez sur le bouton de test pour un essai."
       }
     },
     {
