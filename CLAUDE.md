@@ -74,9 +74,11 @@ test/                             node --test, against the SDK's fake Gladys (in
 - **Refused credentials are final**: no automatic try, not after a restart
   either; only the test button (once per click, paced) or new credentials.
   So is a token refused by the list right after its login (`denied`). The
-  token is renewed at most once per read.
-- **Battery power sign unconfirmed**: one signed plain sensor (`0 - pso`, as
-  Home Assistant), never typed charge/discharge powers until confirmed.
+  token is renewed at most once per read, and only for the list: a battery
+  state refusing the token the list just accepted never triggers a login.
+- **No battery power**: `socket_power` (`0 - pso`, as Home Assistant, sign to
+  confirm) is the exchange at the socket, solar included; never a battery
+  power nor typed charge/discharge powers until `pbt` is understood.
 - **No energy index**: the API has no energy counter; never an `index`,
   `daily-*` nor `publishEnergyConsumption`, never an energy made up from a
   power.

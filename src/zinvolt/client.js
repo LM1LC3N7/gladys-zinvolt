@@ -188,7 +188,7 @@ export class ZinvoltClient {
     }
   }
 
-  /** The one login of a read; its errors are marked `login` (they stop the read). */
+  /** The one login of a read (its errors are marked `login`). */
   async loginOnce(credentials, state) {
     state.loggedIn = true;
     try {
@@ -202,9 +202,9 @@ export class ZinvoltClient {
   /**
    * One read: the list of the batteries first (required: an error there
    * stops the read), then the current state of each one. A battery whose
-   * state fails with an error of the service (5xx, 401/403 after the one
-   * renewal of the token, an odd answer) is only left out (`missing`); a 429
-   * or an error of the login stops the read; a network failure
+   * state fails with an error of the service (5xx, 401/403 of a token the
+   * list just accepted: never a login for it, an odd answer) is only left
+   * out (`missing`); a 429 stops the read; a network failure
    * stops the remaining requests (kept: what came). `alive()` false (a
    * restart, a new configuration) stops between two requests.
    * @returns {Promise<{ batteries: { list, more }, states: Map<string, object>,
@@ -225,20 +225,18 @@ export class ZinvoltClient {
         break;
       }
       try {
-        // A token refused here is renewed once per read too (never a loop).
-        const answer = await this.authed(
-          PATHS.currentState(battery.id),
-          credentials,
-          session,
-          state,
-        );
+        // Never a login here: the list has just accepted this very token in
+        // this read, so a 401/403 of a state concerns that battery only (it
+        // is "not read"); a login per read for it would never end.
+        const answer = await this.request(PATHS.currentState(battery.id), {
+          token: session.token,
+        });
         if (!isCurrentState(answer)) {
           throw new ZinvoltError('unknown_answer');
         }
         result.states.set(battery.key, answer);
       } catch (err) {
-        // A 429, or an error of the login (refused, paused...), stops the read.
-        if (err.code === 'rate_limited' || err.login) {
+        if (err.code === 'rate_limited') {
           throw err;
         }
         result.missing.push(battery.key);

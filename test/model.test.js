@@ -45,7 +45,7 @@ test('an online state: the battery power is 0 - pso (Home Assistant), no typed c
   assert.deepEqual(values, {
     online: 1,
     soc: 100,
-    batteryPower: 19,
+    socketPower: 19,
     outputPower: 19,
     pvPower: 0,
     powerLimit: 800,
@@ -60,10 +60,10 @@ test('an online state: the battery power is 0 - pso (Home Assistant), no typed c
   });
   // pbt is never used, whatever it says.
   const taking = parseCurrentState(onlineState(SN1, { pso: 300, pbt: -999, ppv: -3 })).values;
-  assert.equal(taking.batteryPower, -300);
+  assert.equal(taking.socketPower, -300);
   assert.equal(taking.outputPower, 0, 'nothing given to the home socket');
   assert.equal(taking.pvPower, 0, 'a few watts below 0 at night read 0');
-  assert.equal(parseCurrentState(onlineState(SN1, { pso: 0 })).values.batteryPower, 0);
+  assert.equal(parseCurrentState(onlineState(SN1, { pso: 0 })).values.socketPower, 0);
   assert.ok(!('chargePower' in taking) && !('dischargePower' in taking));
 });
 
@@ -83,7 +83,7 @@ test('online flags: live values only when every flag given says ONLINE', () => {
     const v = head(top, inner);
     assert.equal(v.online, 0, `${top}/${inner}`);
     assert.equal(v.soc, undefined);
-    assert.equal(v.batteryPower, undefined);
+    assert.equal(v.socketPower, undefined);
   }
   assert.equal(head(undefined, 'ONLINE').soc, 100, 'one flag, ONLINE');
   const none = head(undefined, undefined);
@@ -96,7 +96,7 @@ test('an offline state gives no live value; odd values are left out, never 0', (
   const { values } = parseCurrentState(offlineState());
   assert.equal(values.online, 0);
   assert.equal(values.soc, undefined);
-  assert.equal(values.batteryPower, undefined);
+  assert.equal(values.socketPower, undefined);
   assert.equal(values.maxChargePower, 2000);
   const odd = parseCurrentState({
     onlineStatus: 'ONLINE',

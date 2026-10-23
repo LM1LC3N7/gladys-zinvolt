@@ -149,10 +149,11 @@ function onlineOf(answer, power) {
  * what came, checked; powers in W. Unless every status given says ONLINE, no
  * live value is taken: the last ones are never sent again as new.
  *
- * Signs: the battery power follows Home Assistant (its Zinvolt sensor
- * publishes `0 - pso`): > 0 when the battery supplies the home, < 0 when it
- * takes power. `pbt` (not in the library's model) is not used. Both are to
- * be confirmed on a real battery (TODO.md).
+ * Signs: the socket power (`pso`, the exchange of the device at its socket,
+ * solar included: not the power of the battery cells) follows Home
+ * Assistant (its Zinvolt sensor publishes `0 - pso`): > 0 to the home, < 0
+ * from it. `pbt` (not in the library's model) is not used. To be confirmed
+ * on a real battery (TODO.md).
  */
 export function parseCurrentState(answer) {
   const power = own(answer, 'currentPower');
@@ -164,9 +165,9 @@ export function parseCurrentState(answer) {
     v.soc = read(power, 'soc', 0, 100);
     const pso = read(power, 'pso', -POWER_MAX, POWER_MAX);
     if (pso !== undefined) {
-      v.batteryPower = pso === 0 ? 0 : -pso;
-      // The power the battery gives to the socket of the home (>= 0).
-      v.outputPower = Math.max(0, v.batteryPower);
+      v.socketPower = pso === 0 ? 0 : -pso;
+      // The power the device gives to the home through its socket (>= 0).
+      v.outputPower = Math.max(0, v.socketPower);
     }
     // A solar input reads a few watts below 0 at night: 0, never the last value of the day.
     const pv = read(power, 'ppv', -200, POWER_MAX);

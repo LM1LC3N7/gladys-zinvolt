@@ -123,7 +123,7 @@ test('a created battery gets its values; read-only; never the energy consumption
   assert.equal(last(gladys, 'soc'), 100);
   assert.equal(last(gladys, 'charge_power'), undefined, 'no typed charge power in v1');
   assert.equal(last(gladys, 'discharge_power'), undefined);
-  assert.equal(last(gladys, 'battery_power'), 19, '0 - pso, as Home Assistant');
+  assert.equal(last(gladys, 'socket_power'), 19, '0 - pso, as Home Assistant');
   assert.equal(last(gladys, 'output_power'), 19);
   assert.equal(last(gladys, 'online'), 1);
   assert.equal(last(gladys, 'smart_mode'), 3);
@@ -272,7 +272,7 @@ test('an offline battery sends no live value, only its state and settings', asyn
   await app.idle();
   assert.equal(last(gladys, 'online', device), 0);
   assert.equal(last(gladys, 'soc', device), undefined);
-  assert.equal(last(gladys, 'battery_power', device), undefined);
+  assert.equal(last(gladys, 'socket_power', device), undefined);
   assert.equal(last(gladys, 'max_charge_power', device), 2000);
 });
 
@@ -357,7 +357,7 @@ test('contradictory online flags: nothing live published, said in the status', a
   await app.idle();
   assert.equal(last(gladys, 'online'), 0);
   assert.equal(last(gladys, 'soc'), undefined);
-  assert.equal(last(gladys, 'battery_power'), undefined);
+  assert.equal(last(gladys, 'socket_power'), undefined);
   assert.match(
     status(gladys).message.en,
     /Offline or online state unknown for Zinvolt: ZVG011025120088/,
@@ -374,6 +374,19 @@ test('an expired token: one new login in the read, then the values', async () =>
   await tick(POLL);
   assert.equal(logins(fake), 2);
   assert.equal(status(gladys).connected, true);
+});
+
+test('current-state always 401, the list accepted: at most 1 login in 24 h', async () => {
+  const routes = account();
+  routes.state.states[ID1] = () => json({}, 401);
+  const { app, gladys, fake, tick } = await setup({ routes, devices: [created()] });
+  await app.start(CONFIG);
+  await app.idle();
+  for (let i = 0; i < 24 * 60; i++) await tick(POLL);
+  assert.ok(reads(fake) > 1000, 'read at its pace all day');
+  assert.equal(logins(fake), 1);
+  assert.equal(status(gladys).connected, true);
+  assert.match(status(gladys).message.en, new RegExp(`Not read this time: ${SN1}`));
 });
 
 test('nothing secret in the logs nor the statuses', async () => {

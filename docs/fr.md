@@ -15,14 +15,18 @@ sur une vraie batterie.
 Un appareil par batterie du compte (10 au plus), avec :
 
 - le niveau de charge (%) ;
-- la puissance de la batterie (W, signée) : positive quand la batterie
-  alimente la maison, négative quand elle prend de la puissance. Ce signe
-  suit Home Assistant (son capteur Zinvolt affiche l’opposé de la valeur
-  `pso` de l’API) et reste **à confirmer** sur une vraie batterie ; c’est
-  pourquoi cette version n’a pas de « puissance de charge » et de « puissance
-  de décharge » séparées ;
-- la puissance solaire (W), et la puissance fournie à la prise de la maison
-  (W, 0 quand la batterie prend de la puissance, même signe à confirmer) ;
+- la puissance à la prise (W, signée) : ce que l’appareil échange avec la
+  maison par sa prise, solaire compris. Ce n’est **pas** la puissance de la
+  batterie elle-même : avec 500 W de solaire, 300 W vers la batterie et
+  200 W vers la maison, elle vaut +200 W pendant que la batterie charge.
+  Positive vers la maison, négative depuis la maison ; ce signe suit Home
+  Assistant (son capteur Zinvolt affiche l’opposé de la valeur `pso` de
+  l’API) et reste **à confirmer** sur une vraie batterie. Cette version n’a
+  pas de puissance de charge ou de décharge de la batterie : l’API ne la
+  donne pas avec un signe connu ;
+- la puissance solaire (W), et la puissance fournie à la maison par la prise
+  (W, la partie positive de la puissance à la prise, même signe à
+  confirmer) ;
 - les états en ligne, sur le réseau et en veille (1 = oui, 0 = non) ;
 - le mode intelligent (0 = défaut, 1 = autoconsommation, 2 = dynamique,
   3 = chargé, 4 = performance, 5 = injection, 6 = personnalisé) ;
@@ -84,6 +88,8 @@ dernières valeurs en direct ne sont jamais renvoyées comme nouvelles.
 
 - L’état de l’intégration dit ce qui s’est passé et l’heure de la prochaine
   lecture.
-- La puissance de la batterie semble inversée (positive pendant la charge) ?
-  Son signe n’a pas encore été vérifié sur une vraie batterie : merci de le
-  signaler.
+- La puissance à la prise semble inversée (négative alors que la maison
+  reçoit de la puissance de l’appareil, sans solaire) ? Son signe n’a pas
+  encore été vérifié sur une vraie batterie : merci de le signaler. Avec du
+  solaire, une puissance à la prise positive pendant que la batterie charge
+  est normale (voir plus haut).

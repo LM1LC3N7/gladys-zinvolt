@@ -17,9 +17,11 @@ the notes of the version's GitHub Release.
   list of the batteries, current state of each one, every 60 s by default
   (60 to 900 s). Read-only: no mode, output or limit is ever sent.
 - One device per battery (10 at most), its external id from the serial
-  number: state of charge, one signed battery power (the sign of Home
-  Assistant, `0 - pso`, still to confirm: no typed charge or discharge power
-  yet), solar power, power given to the home socket (`home-output-sensor`),
+  number: state of charge, the signed power at the socket (the exchange of
+  the device with the home, solar included; the sign of Home Assistant,
+  `0 - pso`, still to confirm; no battery charge or discharge power yet),
+  solar power, power given to the home through the socket
+  (`home-output-sensor`),
   power limit, online, on grid and dormant states, smart mode, maximum
   output, charge upper and discharge lower limits, maximum charge power,
   standby time. No energy index: the API has no energy counter.
@@ -36,8 +38,9 @@ the notes of the version's GitHub Release.
   no automatic try, the test button tries once per click, new credentials are
   tried at once; saving the same ones again tries nothing. An account whose
   access to the API is refused right after its login is stopped the same
-  way. An expired session gets one new login per read at most (the list or
-  a battery state).
+  way. An expired session gets one new login per read at most (on the list
+  only: a battery state refusing the token the list just accepted is only
+  left out, never a login).
   HTTP 429 and 5xx of the login or the list pause the reads from 1 minute to
   6 hours; an error of one battery only leaves it out. Answers bounded to
   64 KiB, no redirect followed, no secret logged nor kept in `/data`.

@@ -13,15 +13,16 @@
 
 ## To confirm on a real battery (built without one)
 
-- [ ] The sign of `pso`: the battery power is published as `0 - pso` (> 0
-      supplying), after Home Assistant (its Zinvolt `sensor.py`), and the
-      power to the home socket as its positive part.
-      Once confirmed, add typed `battery-storage` charge and discharge powers
-      (review 1, I1: none in v1, a wrong sign would fill their history).
-- [ ] The meaning of `pbt` (equal to `pso` in the library's fixture, not in
-      its model, not used).
-- [ ] The token refused by `current-state` only (the list accepts it):
-      renewed once per read, then the battery is "not read" (review 1, M5).
+- [ ] The sign of `pso`: the socket power is published as `0 - pso` (> 0 to
+      the home), after Home Assistant (its Zinvolt `sensor.py`), and the
+      power to the home as its positive part.
+- [ ] The meaning and sign of `pbt` (equal to `pso` in the library's
+      fixture, not in its model, not used). Once confirmed, add typed
+      `battery-storage` charge and discharge powers (review 1, I1: none in
+      v1, a wrong sign would fill their history).
+- [ ] The token refused by `current-state` only (the list accepts it in the
+      same read): the battery is "not read", never a login for it (approval
+      1, I4: a renewal there gave one login per read, forever).
 - [ ] The status of a wrong password at the login (401 in the library's
       tests; 400, 403 and 422 are taken as refusals too).
 - [ ] How long the token lives (the fixture JWT has no `exp`): renewed on a
@@ -55,17 +56,19 @@
   no energy is ever made up from a power (a sum of samples would drift and
   be counted by the core). No `index`, no `daily-*`, never
   `publishEnergyConsumption`. The level is `battery-storage`, the solar
-  power `energy-production-sensor` / `power`, the power to the home socket
-  `home-output-sensor` / `power` (>= 0), the rest plain sensors (`unknown`,
-  unit in the name).
-- **Battery power sign (review 1, I1)**: `pbt` is not in the library's
-  model and its sign is not established; Home Assistant publishes
-  `0 - pso` (> 0 = the battery supplies). v1 publishes one signed battery
-  power `battery_power` = `0 - pso` as a plain sensor ("sign to confirm" in
-  its name and the docs), and `output_power` = its positive part as
-  `home-output-sensor` / `power`. No typed `battery-storage` charge or
-  discharge power until the sign is confirmed (a wrong one would fill their
-  history forever).
+  power `energy-production-sensor` / `power`, the power to the home through
+  the socket `home-output-sensor` / `power` (>= 0), the rest plain sensors
+  (`unknown`, unit in the name).
+- **Socket power, no battery power (review 1, I1; approval 1, M7)**: `pbt`
+  is not in the library's model and its sign is not established; `pso` is
+  the exchange of the device at its socket (solar included), not the power
+  of the battery cells. Home Assistant publishes `0 - pso` (> 0 to the
+  home). v1 publishes `socket_power` = `0 - pso` as a signed plain sensor
+  ("sign to confirm" in its name and the docs, which explain that it differs
+  from the battery power with solar), and `output_power` = its positive part
+  as `home-output-sensor` / `power`. No battery power and no typed
+  `battery-storage` charge or discharge power until `pbt` is understood (a
+  wrong sign would fill their history forever).
 - **External id**: `battery:<serial number>` in upper case, from
   `serial_number` of the list (letters, digits, `-`, `_`, 4 to 40). Without a
   readable serial number, the readable fallback `battery:id-<identifier>`
@@ -111,10 +114,12 @@
   button or by other credentials.
 - **Token**: kept in memory only (never in `/data`), reused across reads and
   reconnections; dropped when the credentials change. A 401/403 of the list
-  or of a battery state with an old token gives one new login in the same
-  read, never more (review 1, M5); a battery state still refused after it is
-  only left out. The token's `exp` is not read (no clock of the service
-  compared to ours).
+  with an old token gives one new login in the same read, never more. A
+  battery state refusing the token is only left out, never a login: the list
+  has just accepted that very token in the same read, so the token is good
+  and a login there would come back at every read (approval 1, I4, which
+  replaces the renewal of review 1, M5). The token's `exp` is not read (no
+  clock of the service compared to ours).
 - **429 / 5xx**: of the login or the list (or a 429 anywhere): pause
   `{ until, count, code, status }` in `/data`, from Retry-After or 1 min
   doubled, 1 min - 6 h, at least the interval, end capped when read back. A

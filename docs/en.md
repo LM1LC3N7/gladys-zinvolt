@@ -14,13 +14,16 @@ battery.
 One device per battery of the account (10 at most), with:
 
 - state of charge (%);
-- the battery power (W, signed): positive when the battery supplies the
-  home, negative when it takes power. This sign follows Home Assistant (its
-  Zinvolt sensor shows the opposite of the `pso` value of the API) and is
-  **still to be confirmed** on a real battery; that is why there is no
-  separate "charge power" and "discharge power" in this version;
-- solar power (W), and the power given to the home socket (W, 0 when the
-  battery takes power, same sign to confirm);
+- the socket power (W, signed): what the device exchanges with the home at
+  its socket, solar included. It is **not** the power of the battery
+  itself: with 500 W of solar, 300 W into the battery and 200 W to the home,
+  it reads +200 W while the battery charges. Positive towards the home,
+  negative from it; this sign follows Home Assistant (its Zinvolt sensor
+  shows the opposite of the `pso` value of the API) and is **still to be
+  confirmed** on a real battery. This version has no battery charge or
+  discharge power: the API does not give it with a known sign;
+- solar power (W), and the power given to the home through the socket (W,
+  the positive part of the socket power, same sign to confirm);
 - online, on grid and dormant states (1 = yes, 0 = no);
 - the smart mode (0 = default, 1 = self use, 2 = dynamic, 3 = charged,
   4 = performance, 5 = feed, 6 = custom);
@@ -76,5 +79,7 @@ sent again as new ones.
 ## Troubleshooting
 
 - The status of the integration says what happened and when the next read is.
-- The battery power looks inverted (positive while charging)? Its sign has
-  not been checked on a real battery yet: please report it.
+- The socket power looks inverted (negative while the home gets power from
+  the device, with no solar)? Its sign has not been checked on a real
+  battery yet: please report it. With solar, a positive socket power while
+  the battery charges is normal (see above).

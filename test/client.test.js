@@ -67,31 +67,17 @@ test('a token refused later: one new login in the read, never a loop', async () 
   assert.equal(fake.calls.filter((x) => x.path === 'login').length, 2);
 });
 
-test('a token refused by a battery state only: renewed once in the read, never more', async () => {
+test('a battery state refusing the token the list just accepted: left out, never a login', async () => {
   const routes = account();
   const { fake, client: c } = client(routes);
+  routes[`GET system/${ID1}/basic/current-state`] = () => json({}, 401);
   const session = { token: TOKEN };
-  // The list takes the old token, the state refuses it: one login, the state again.
-  let refuse = true;
-  const inner = routes[`GET system/${ID1}/basic/current-state`];
-  routes[`GET system/${ID1}/basic/current-state`] = (call) =>
-    refuse && call.init.headers.Authorization === `Bearer ${TOKEN}`
-      ? json({}, 401)
-      : inner({ ...call, init: { ...call.init, headers: { Authorization: `Bearer ${TOKEN}` } } });
-  routes.state.issued = TOKEN2;
-  const result = await c.readAll(CREDENTIALS, session);
-  assert.equal(fake.calls.filter((x) => x.path === 'login').length, 1);
-  assert.equal(session.token, TOKEN2);
-  assert.ok(result.states.has(SN1));
-  // Refused again after the renewal: only left out, no second login.
-  refuse = false;
-  routes[`GET system/${ID1}/basic/current-state`] = () => json({}, 403);
-  const again = await c.readAll(CREDENTIALS, { token: TOKEN });
-  assert.deepEqual(again.missing, [SN1]);
-  assert.equal(fake.calls.filter((x) => x.path === 'login').length, 2);
-  // A login refused during that renewal stops the read (refused, final in the app).
-  routes.state.login = () => json({}, 401);
-  await assert.rejects(c.readAll(CREDENTIALS, { token: TOKEN }), { code: 'refused' });
+  for (let i = 0; i < 5; i++) {
+    const result = await c.readAll(CREDENTIALS, session);
+    assert.deepEqual(result.missing, [SN1]);
+  }
+  assert.equal(fake.calls.filter((x) => x.path === 'login').length, 0);
+  assert.equal(session.token, TOKEN, 'the token is kept: the list takes it');
 });
 
 test('the login refuses the credentials: refused (400, 401, 403, 422); 429 and 5xx are not', async () => {

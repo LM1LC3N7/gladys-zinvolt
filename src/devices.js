@@ -8,7 +8,7 @@
 // rules of this project): the API gives NO energy counter (no kWh at all),
 // only powers; none is ever made up from a power. So no `index`, no
 // `daily-*`, never publishEnergyConsumption: the energy monitoring of Gladys
-// is left to the main meter. The signed battery power is a plain sensor (its
+// is left to the main meter. The signed socket power is a plain sensor (its
 // sign follows Home Assistant, `0 - pso`, to confirm); the solar power is
 // energy-production-sensor / power, the power given to the home socket
 // home-output-sensor / power (>= 0).
@@ -29,7 +29,7 @@ import { EXTERNAL_ID_TYPE, POWER_MAX } from './constants.js';
 /** Feature keys (forever). */
 export const FEATURE = {
   SOC: 'soc',
-  BATTERY_POWER: 'battery_power',
+  SOCKET_POWER: 'socket_power',
   PV_POWER: 'pv_power',
   OUTPUT_POWER: 'output_power',
   POWER_LIMIT: 'power_limit',
@@ -66,13 +66,15 @@ export const CATALOG = [
     unit: U.PERCENT,
     max: 100,
   }),
-  // No typed charge / discharge power in v1: the sign is not established on a
-  // real battery, and a wrong one would fill their history forever.
+  // No battery power at all in v1 (no typed charge / discharge): the API's
+  // `pbt` sign is not established, and a wrong one would fill their history
+  // forever. This is the exchange of the device at its socket (solar
+  // included), not the power of the battery cells.
   def(
-    FEATURE.BATTERY_POWER,
-    'batteryPower',
+    FEATURE.SOCKET_POWER,
+    'socketPower',
     0,
-    plain('Battery power (W, > 0 supplying, < 0 taking, sign to confirm)', {
+    plain('Socket power (W, > 0 to the home, < 0 from it, sign to confirm)', {
       min: -POWER_MAX,
       max: POWER_MAX,
     }),
